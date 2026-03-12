@@ -1,0 +1,79 @@
+{
+  "name": "@lpm.dev/neo.debug",
+  "version": "1.0.0",
+  "description": "Zero-dependency debugging utility - Fast, modern alternative to debug",
+  "author": "neo",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "browser": {
+        "types": "./dist/browser/index.d.ts",
+        "import": "./dist/browser/index.js"
+      },
+      "node": {
+        "types": "./dist/node/index.d.ts",
+        "import": "./dist/node/index.js",
+        "require": "./dist/node/index.cjs"
+      },
+      "default": "./dist/node/index.js"
+    }
+  },
+  "main": "./dist/node/index.cjs",
+  "module": "./dist/node/index.js",
+  "types": "./dist/node/index.d.ts",
+  "files": [
+    "dist",
+    ".lpm",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "debug",
+    "debugging",
+    "log",
+    "logger",
+    "namespace",
+    "wildcard",
+    "printf",
+    "browser",
+    "node",
+    "typescript"
+  ],
+  "peerDependencies": {
+    "@lpm.dev/neo.colors": "^1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@lpm.dev/neo.colors": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@lpm.dev/neo.colors": "workspace:*",
+    "@types/node": "^20.11.0",
+    "@vitest/coverage-v8": "^1.1.0",
+    "debug": "^4.4.3",
+    "happy-dom": "^12.10.3",
+    "tsup": "^8.0.1",
+    "typescript": "^5.3.3",
+    "vitest": "^1.1.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ne-ooo/neo.debug"
+  },
+  "bugs": {
+    "url": "https://github.com/ne-ooo/neo.debug/issues"
+  },
+  "homepage": "https://github.com/ne-ooo/neo.debug#readme"
+}
