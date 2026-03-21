@@ -2,10 +2,6 @@
 
 > **Zero-dependency debugging utility** - Fast, modern alternative to debug
 
-[![npm version](https://img.shields.io/npm/v/@lpm.dev/neo.debug.svg)](https://www.npmjs.com/package/@lpm.dev/neo.debug)
-[![Bundle size](https://img.shields.io/bundlephobia/minzip/@lpm.dev/neo.debug)](https://bundlephobia.com/package/@lpm.dev/neo.debug)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
 ## Features
 
 - ✅ **Zero dependencies** - Inline ms package, optional neo.colors
@@ -31,28 +27,28 @@ lpm install @lpm.dev/neo.colors
 ```
 
 ```typescript
-import debug from '@lpm.dev/neo.debug'
+import debug from "@lpm.dev/neo.debug";
 
-const log = debug('app:server')
+const log = debug("app:server");
 
-log('Server starting on port %d', 3000)
+log("Server starting on port %d", 3000);
 // app:server Server starting on port 3000 +0ms
 
-log('User %s logged in', 'john')
+log("User %s logged in", "john");
 // app:server User john logged in +5ms
 ```
 
 ### Browser
 
 ```typescript
-import debug from '@lpm.dev/neo.debug'
+import debug from "@lpm.dev/neo.debug";
 
-const log = debug('app:ui')
+const log = debug("app:ui");
 
 // Enable via localStorage
-localStorage.setItem('debug', 'app:*')
+localStorage.setItem("debug", "app:*");
 
-log('Component mounted')
+log("Component mounted");
 // app:ui Component mounted +0ms
 ```
 
@@ -68,6 +64,7 @@ log('Component mounted')
 ### neo.debug Modernizes Everything
 
 Built from the ground up with:
+
 - Zero runtime dependencies (inlined ms package)
 - Separate optimized builds for Node.js and Browser
 - TypeScript-first architecture
@@ -79,15 +76,15 @@ Built from the ground up with:
 ### Creating Debuggers
 
 ```typescript
-import debug from '@lpm.dev/neo.debug'
+import debug from "@lpm.dev/neo.debug";
 
 // Create a debugger for a namespace
-const log = debug('app:db')
+const log = debug("app:db");
 
 // Log messages
-log('Query executed')
-log('User %s found', 'john')
-log('Query took %dms', 42)
+log("Query executed");
+log("User %s found", "john");
+log("Query took %dms", 42);
 ```
 
 ### Namespace Filtering
@@ -115,80 +112,80 @@ DEBUG=app:*,-app:db node app.js
 
 ```javascript
 // Enable all
-localStorage.setItem('debug', '*')
+localStorage.setItem("debug", "*");
 
 // Enable specific namespace
-localStorage.setItem('debug', 'app:ui')
+localStorage.setItem("debug", "app:ui");
 
 // Enable with wildcard
-localStorage.setItem('debug', 'app:*')
+localStorage.setItem("debug", "app:*");
 
 // Exclude specific namespaces
-localStorage.setItem('debug', 'app:*,-app:db')
+localStorage.setItem("debug", "app:*,-app:db");
 ```
 
 ### Printf-Style Formatting
 
 ```typescript
-const log = debug('app')
+const log = debug("app");
 
 // %s - String
-log('user %s', 'john')
+log("user %s", "john");
 // → user john
 
 // %d - Number
-log('count %d', 42)
+log("count %d", 42);
 // → count 42
 
 // %i - Integer
-log('int %i', 3.14)
+log("int %i", 3.14);
 // → int 3
 
 // %f - Float
-log('pi %f', 3.14)
+log("pi %f", 3.14);
 // → pi 3.14
 
 // %j - JSON
-log('data %j', { foo: 'bar' })
+log("data %j", { foo: "bar" });
 // → data {"foo":"bar"}
 
 // %o - Object (pretty printed)
-log('obj %o', { foo: 'bar' })
+log("obj %o", { foo: "bar" });
 // → obj {
 //     "foo": "bar"
 //   }
 
 // Multiple formatters
-log('user %s has %d points', 'john', 42)
+log("user %s has %d points", "john", 42);
 // → user john has 42 points
 ```
 
 ### Runtime Control
 
 ```typescript
-import debug from '@lpm.dev/neo.debug'
+import debug from "@lpm.dev/neo.debug";
 
 // Enable namespaces at runtime
-debug.enable('app:*')
+debug.enable("app:*");
 
 // Disable all
-debug.disable()
+debug.disable();
 
 // Check if a namespace is enabled
-if (debug.enabled('app:db')) {
-  console.log('Debugging enabled')
+if (debug.enabled("app:db")) {
+  console.log("Debugging enabled");
 }
 ```
 
 ### Destroying Debuggers
 
 ```typescript
-const log = debug('app:temp')
+const log = debug("app:temp");
 
-log('Message')
+log("Message");
 
 // Cleanup when done
-log.destroy()
+log.destroy();
 ```
 
 ## Environment Detection
@@ -202,6 +199,7 @@ DEBUG=app:* node app.js
 ```
 
 Uses `@lpm.dev/neo.colors` for terminal colors (if installed):
+
 - Each namespace gets a unique color
 - Time diffs shown in gray
 - Outputs to `stderr` (debug convention)
@@ -211,10 +209,11 @@ Uses `@lpm.dev/neo.colors` for terminal colors (if installed):
 Reads from `localStorage.debug`:
 
 ```javascript
-localStorage.setItem('debug', 'app:*')
+localStorage.setItem("debug", "app:*");
 ```
 
 Uses `%c` console formatting for colors:
+
 - Each namespace gets a unique CSS color
 - Time diffs shown in gray
 - Outputs to `console.log`
@@ -222,12 +221,12 @@ Uses `%c` console formatting for colors:
 ## TypeScript
 
 ```typescript
-import debug, { Debugger, DebugFactory } from '@lpm.dev/neo.debug'
+import debug, { Debugger, DebugFactory } from "@lpm.dev/neo.debug";
 
-const log: Debugger = debug('app:server')
+const log: Debugger = debug("app:server");
 
 // All types are exported
-import type { Debugger, DebugFactory } from '@lpm.dev/neo.debug'
+import type { Debugger, DebugFactory } from "@lpm.dev/neo.debug";
 ```
 
 ## Migration from debug
@@ -245,6 +244,7 @@ log('Server started')
 ### API Compatibility
 
 99% compatible with original debug package:
+
 - ✅ Namespace filtering with wildcards
 - ✅ Printf-style formatting
 - ✅ enable/disable/enabled methods
@@ -258,27 +258,27 @@ log('Server started')
 ### Express Server
 
 ```typescript
-import express from 'express'
-import debug from '@lpm.dev/neo.debug'
+import express from "express";
+import debug from "@lpm.dev/neo.debug";
 
-const log = debug('app:server')
-const dbLog = debug('app:db')
+const log = debug("app:server");
+const dbLog = debug("app:db");
 
-const app = express()
+const app = express();
 
-app.get('/users/:id', async (req, res) => {
-  log('GET /users/%s', req.params.id)
+app.get("/users/:id", async (req, res) => {
+  log("GET /users/%s", req.params.id);
 
-  dbLog('Querying user %s', req.params.id)
-  const user = await db.findUser(req.params.id)
-  dbLog('Query completed in %dms', 42)
+  dbLog("Querying user %s", req.params.id);
+  const user = await db.findUser(req.params.id);
+  dbLog("Query completed in %dms", 42);
 
-  res.json(user)
-})
+  res.json(user);
+});
 
 app.listen(3000, () => {
-  log('Server listening on port %d', 3000)
-})
+  log("Server listening on port %d", 3000);
+});
 ```
 
 ```bash
@@ -315,27 +315,27 @@ export function UserProfile({ userId }: { userId: string }) {
 
 ```javascript
 // In browser console
-localStorage.setItem('debug', 'app:*')
+localStorage.setItem("debug", "app:*");
 // Reload page to see logs
 ```
 
 ### Worker Queue
 
 ```typescript
-import debug from '@lpm.dev/neo.debug'
+import debug from "@lpm.dev/neo.debug";
 
-const log = debug('worker:queue')
-const taskLog = debug('worker:task')
+const log = debug("worker:queue");
+const taskLog = debug("worker:task");
 
 class JobQueue {
   async processJob(job: Job) {
-    log('Processing job %s', job.id)
+    log("Processing job %s", job.id);
 
-    taskLog('Task %s started', job.task)
-    await job.execute()
-    taskLog('Task %s completed in %dms', job.task, job.duration)
+    taskLog("Task %s started", job.task);
+    await job.execute();
+    taskLog("Task %s completed in %dms", job.task, job.duration);
 
-    log('Job %s completed', job.id)
+    log("Job %s completed", job.id);
   }
 }
 ```
@@ -351,12 +351,14 @@ DEBUG=worker:task node worker.js
 ## Bundle Sizes
 
 ### Node.js Build
+
 - ESM: ~5.4 KB
 - CommonJS: ~6.1 KB
 - Includes: Core + Node env + inlined ms
 - Excludes: Browser code
 
 ### Browser Build
+
 - ESM: ~5.0 KB
 - Includes: Core + Browser env + inlined ms
 - Excludes: Node.js code, neo.colors dependency
@@ -371,6 +373,7 @@ DEBUG=worker:task node worker.js
 ## Browser Support
 
 Works in all modern browsers with:
+
 - `localStorage` support
 - `console.log` with `%c` formatting
 
