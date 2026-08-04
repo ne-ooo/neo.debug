@@ -37,6 +37,9 @@ jobs:
       - name: Install LPM
         run: npm install --global "@lpm-registry/cli@${LPM_VERSION}"
 
+      - name: Pin the LPM-managed Node.js runtime
+        run: lpm use "node@${{ matrix.node }}"
+
       - name: Install locked dependencies
         env:
           LPM_TOKEN: ${{ secrets.LPM_TOKEN }}
@@ -79,6 +82,9 @@ jobs:
 
       - name: Install LPM
         run: npm install --global "@lpm-registry/cli@${LPM_VERSION}"
+
+      - name: Pin the LPM-managed Node.js runtime
+        run: lpm use node@18.20.8
 
       - name: Install build dependencies
         env:
