@@ -13,6 +13,101 @@ export interface NamespacePattern {
   disabled: string[]
 }
 
+interface CompiledPattern {
+  leadingWildcard: boolean
+  trailingWildcard: boolean
+  segments: string[]
+}
+
+interface CompiledNamespacePattern {
+  enabled: CompiledPattern[]
+  disabled: CompiledPattern[]
+}
+
+/**
+ * Compiled matchers are associated with parsed pattern objects without
+ * changing their public shape. Weak keys prevent obsolete enable() states
+ * from being retained.
+ */
+const compiledPatterns = new WeakMap<NamespacePattern, CompiledNamespacePattern>()
+
+function compilePattern(pattern: string): CompiledPattern {
+  return {
+    leadingWildcard: pattern.startsWith('*'),
+    trailingWildcard: pattern.endsWith('*'),
+    segments: pattern.split('*'),
+  }
+}
+
+function getCompiledPatterns(pattern: NamespacePattern): CompiledNamespacePattern {
+  const cached = compiledPatterns.get(pattern)
+  if (cached) {
+    return cached
+  }
+
+  const compiled = {
+    enabled: pattern.enabled.map(compilePattern),
+    disabled: pattern.disabled.map(compilePattern),
+  }
+  compiledPatterns.set(pattern, compiled)
+  return compiled
+}
+
+/**
+ * Match a namespace against a compiled glob containing only `*` wildcards.
+ * Literal segments are searched from left to right, avoiding regex
+ * backtracking and keeping work bounded by the input strings.
+ */
+function matchesCompiledPattern(namespace: string, pattern: CompiledPattern): boolean {
+  const { leadingWildcard, trailingWildcard, segments } = pattern
+
+  if (segments.length === 1) {
+    return namespace === segments[0]
+  }
+
+  let namespaceStart = 0
+  let namespaceEnd = namespace.length
+  let firstMiddleSegment = 0
+  let lastMiddleSegment = segments.length
+
+  if (!leadingWildcard) {
+    const first = segments[0]
+    if (first === undefined || !namespace.startsWith(first)) {
+      return false
+    }
+    namespaceStart = first.length
+    firstMiddleSegment = 1
+  }
+
+  if (!trailingWildcard) {
+    const last = segments.at(-1)
+    if (last === undefined || !namespace.endsWith(last)) {
+      return false
+    }
+    namespaceEnd -= last.length
+    lastMiddleSegment -= 1
+  }
+
+  if (namespaceStart > namespaceEnd) {
+    return false
+  }
+
+  for (let i = firstMiddleSegment; i < lastMiddleSegment; i++) {
+    const segment = segments[i]
+    if (!segment) {
+      continue
+    }
+
+    const matchIndex = namespace.indexOf(segment, namespaceStart)
+    if (matchIndex === -1 || matchIndex + segment.length > namespaceEnd) {
+      return false
+    }
+    namespaceStart = matchIndex + segment.length
+  }
+
+  return true
+}
+
 /**
  * Parse DEBUG environment string into enabled/disabled patterns
  * @param input - Comma or space-separated list of patterns (e.g., 'app:*,-app:db')
@@ -41,18 +136,7 @@ export function parseNamespaces(input: string): NamespacePattern {
  * @returns True if the namespace matches the pattern
  */
 export function matchesPattern(namespace: string, pattern: string): boolean {
-  // Exact match
-  if (namespace === pattern) {
-    return true
-  }
-
-  // Wildcard match - convert pattern to regex
-  // Escape special regex chars except *
-  const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&')
-  const regexPattern = '^' + escaped.replace(/\*/g, '.*?') + '$'
-  const regex = new RegExp(regexPattern)
-
-  return regex.test(namespace)
+  return matchesCompiledPattern(namespace, compilePattern(pattern))
 }
 
 /**
@@ -66,16 +150,18 @@ export function isNamespaceEnabled(
   namespace: string,
   pattern: NamespacePattern
 ): boolean {
+  const compiled = getCompiledPatterns(pattern)
+
   // Check disabled patterns first (higher priority)
-  for (const p of pattern.disabled) {
-    if (matchesPattern(namespace, p)) {
+  for (const matcher of compiled.disabled) {
+    if (matchesCompiledPattern(namespace, matcher)) {
       return false
     }
   }
 
   // Check enabled patterns
-  for (const p of pattern.enabled) {
-    if (matchesPattern(namespace, p)) {
+  for (const matcher of compiled.enabled) {
+    if (matchesCompiledPattern(namespace, matcher)) {
       return true
     }
   }

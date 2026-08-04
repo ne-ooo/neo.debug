@@ -6,7 +6,14 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'lcov'],
-      exclude: ['**/node_modules/**', '**/dist/**', '**/test/**'],
+      include: ['src/**/*.ts'],
+      exclude: ['src/types.ts', '**/node_modules/**', '**/dist/**', '**/test/**'],
+      thresholds: {
+        statements: 95,
+        branches: 85,
+        functions: 95,
+        lines: 95,
+      },
     },
     // Default to node environment
     environment: 'node',

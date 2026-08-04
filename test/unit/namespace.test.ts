@@ -90,6 +90,25 @@ describe('namespace matching', () => {
     it('should match multiple wildcards', () => {
       expect(matchesPattern('app:db:users:read', '*:*:*:read')).toBe(true)
     })
+
+    it('rejects overlapping prefix, middle, and suffix matches', () => {
+      expect(matchesPattern('ab', 'ab*ab')).toBe(false)
+      expect(matchesPattern('aend', 'a*end*end')).toBe(false)
+    })
+
+    it('should treat regular expression syntax as literal text', () => {
+      expect(matchesPattern('app:[db].v1', 'app:[db].*')).toBe(true)
+      expect(matchesPattern('app:db.v1', 'app:[db].*')).toBe(false)
+    })
+
+    it('should avoid catastrophic backtracking with repeated wildcards', () => {
+      const pattern = `${'*a'.repeat(12)}*b`
+      const namespace = 'a'.repeat(30)
+      const start = performance.now()
+
+      expect(matchesPattern(namespace, pattern)).toBe(false)
+      expect(performance.now() - start).toBeLessThan(100)
+    })
   })
 
   describe('isNamespaceEnabled', () => {

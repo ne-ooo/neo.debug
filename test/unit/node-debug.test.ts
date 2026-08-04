@@ -70,6 +70,23 @@ describe('node debug — createDebug', () => {
     expect(stderrSpy).not.toHaveBeenCalled()
   })
 
+  it('invalidates cached enabled state when patterns change', () => {
+    const debug = createDebug('cache:worker')
+
+    expect(debug.enabled).toBe(false)
+    debug('disabled')
+
+    enable('cache:*')
+    expect(debug.enabled).toBe(true)
+    debug('enabled')
+
+    enable('other:*')
+    expect(debug.enabled).toBe(false)
+    debug('disabled again')
+
+    expect(stderrSpy).toHaveBeenCalledTimes(1)
+  })
+
   it('destroy() removes timestamp tracking', () => {
     enable('temp')
     const debug = createDebug('temp')
@@ -88,6 +105,21 @@ describe('node debug — createDebug', () => {
     // Second write should include timing
     const secondOutput = String(stderrSpy.mock.calls[1]?.[0])
     expect(secondOutput).toContain('+')
+  })
+
+  it('keeps timing independent between debugger instances', () => {
+    const nowSpy = vi.spyOn(Date, 'now')
+    nowSpy.mockReturnValueOnce(1_000).mockReturnValueOnce(1_010)
+    enable('shared')
+    const first = createDebug('shared')
+    const second = createDebug('shared')
+
+    first('first instance')
+    second('second instance first call')
+
+    const secondOutput = String(stderrSpy.mock.calls[1]?.[0])
+    expect(secondOutput).not.toContain('+10ms')
+    nowSpy.mockRestore()
   })
 })
 

@@ -3,11 +3,15 @@
  * Uses process.env for DEBUG and neo.colors for terminal colors
  */
 
+import { createRequire } from 'node:module'
+
 import { formatMs } from '../utils/ms.js'
 import { parseNamespaces, isNamespaceEnabled, type NamespacePattern } from '../core/namespace.js'
 import { selectColorIndex } from '../core/color-hash.js'
 import { formatArgs } from '../core/format.js'
 import type { Debugger } from '../types.js'
+
+const loadOptionalModule = createRequire(import.meta.url)
 
 // Conditional import of neo.colors (peer dependency)
 let colors: any = null
@@ -23,8 +27,8 @@ function getColorPalette(): Array<(text: string) => string> {
   if (!isLoadingColors) {
     isLoadingColors = true
     try {
-      // Try to load neo.colors if available (synchronous require for CJS compatibility)
-      const colorsModule = require('@lpm.dev/neo.colors')
+      // createRequire works from both the ESM and CJS Node builds.
+      const colorsModule = loadOptionalModule('@lpm.dev/neo.colors')
       colors = colorsModule.default || colorsModule
 
       // Color palette using neo.colors
@@ -58,11 +62,7 @@ function getColorPalette(): Array<(text: string) => string> {
  * Global namespace pattern from DEBUG env var
  */
 let namespacePattern: NamespacePattern = parseNamespaces(process.env['DEBUG'] || '')
-
-/**
- * Previous timestamps for calculating time diff
- */
-const prevTimestamps = new Map<string, number>()
+let namespaceVersion = 0
 
 /**
  * Create a debugger instance for a namespace
@@ -73,10 +73,21 @@ export function createDebug(namespace: string): Debugger {
   const palette = getColorPalette()
   const colorIndex = selectColorIndex(namespace, palette.length)
   const colorFn = palette[colorIndex]
+  let prevTimestamp: number | undefined
+  let enabledVersion = -1
+  let enabledForNamespace = false
 
-  function debug(...args: any[]): void {
+  const isEnabled = (): boolean => {
+    if (enabledVersion !== namespaceVersion) {
+      enabledForNamespace = isNamespaceEnabled(namespace, namespacePattern)
+      enabledVersion = namespaceVersion
+    }
+    return enabledForNamespace
+  }
+
+  const debug = ((...args: any[]): void => {
     // Check if enabled
-    if (!isNamespaceEnabled(namespace, namespacePattern)) {
+    if (!isEnabled()) {
       return
     }
 
@@ -85,10 +96,10 @@ export function createDebug(namespace: string): Debugger {
 
     // Calculate time diff
     const now = Date.now()
-    const prev = prevTimestamps.get(namespace)
-    prevTimestamps.set(namespace, now)
+    const prev = prevTimestamp
+    prevTimestamp = now
 
-    const diff = prev ? formatMs(now - prev) : ''
+    const diff = prev === undefined ? '' : formatMs(now - prev)
 
     // Output with color
     const prefix = colorFn ? colorFn(namespace) : namespace
@@ -100,18 +111,16 @@ export function createDebug(namespace: string): Debugger {
 
     // Write to stderr (debug convention)
     process.stderr.write(`${prefix} ${message}${diffStr}\n`)
-  }
+  }) as Debugger
 
   debug.namespace = namespace
-  // BUG-6 fix: use a getter so debug.enabled reflects the current namespacePattern,
-  // not a stale snapshot captured at creation time
+  // Keep enabled reactive to subsequent enable() and disable() calls.
   Object.defineProperty(debug, 'enabled', {
-    get: () => isNamespaceEnabled(namespace, namespacePattern),
+    get: isEnabled,
     configurable: true,
   })
   debug.destroy = () => {
-    // Cleanup if needed
-    prevTimestamps.delete(namespace)
+    prevTimestamp = undefined
   }
 
   return debug
@@ -123,6 +132,7 @@ export function createDebug(namespace: string): Debugger {
  */
 export function enable(namespaces: string): void {
   namespacePattern = parseNamespaces(namespaces)
+  namespaceVersion += 1
 }
 
 /**
@@ -130,4 +140,12 @@ export function enable(namespaces: string): void {
  */
 export function disable(): void {
   namespacePattern = { enabled: [], disabled: [] }
+  namespaceVersion += 1
+}
+
+/**
+ * Check if a namespace is enabled using the same state as debugger instances.
+ */
+export function enabled(namespace: string): boolean {
+  return isNamespaceEnabled(namespace, namespacePattern)
 }

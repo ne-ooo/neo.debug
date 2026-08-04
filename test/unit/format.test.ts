@@ -90,6 +90,30 @@ describe('format', () => {
       expect(result).toBe('[Circular]')
     })
 
+    it('should not mislabel non-circular JSON failures', () => {
+      expect(formatArgs(['%j', 1n])).toBe('1')
+      expect(formatArgs(['%j', { value: 1n }])).toBe('[object Object]')
+    })
+
+    it('should never throw for values without primitive conversion', () => {
+      const value = Object.create(null)
+
+      expect(formatArgs([value])).toBe('[Unformattable]')
+      expect(formatArgs(['value', value])).toBe('value [Unformattable]')
+      expect(formatArgs(['%O', value])).toBe('[Unformattable]')
+    })
+
+    it('should never throw when a formatter conversion fails', () => {
+      const value = {
+        [Symbol.toPrimitive]() {
+          throw new Error('conversion failed')
+        },
+      }
+
+      expect(formatArgs(['%s', value])).toBe('[Unformattable]')
+      expect(formatArgs(['%d', Symbol('value')])).toBe('[Unformattable]')
+    })
+
     it('should handle escaping', () => {
       // %% is not implemented (not in the spec)
       // Just ensure % without valid formatter is preserved
