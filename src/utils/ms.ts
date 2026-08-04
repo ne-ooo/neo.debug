@@ -38,7 +38,7 @@ export function parseMs(str: string): number {
     return NaN
   }
 
-  const n = parseFloat(match[1])
+  const n = parseFloat(match[1]!)
   const unit = (match[2] || 'ms').toLowerCase()
 
   const units: Record<string, number> = {

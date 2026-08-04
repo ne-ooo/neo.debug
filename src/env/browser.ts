@@ -52,11 +52,7 @@ function saveNamespaces(value: string): void {
  * Global namespace pattern from localStorage
  */
 let namespacePattern: NamespacePattern = parseNamespaces(loadNamespaces())
-
-/**
- * Previous timestamps for calculating time diff
- */
-const prevTimestamps = new Map<string, number>()
+let namespaceVersion = 0
 
 /**
  * Create a debugger instance for a namespace
@@ -66,10 +62,21 @@ const prevTimestamps = new Map<string, number>()
 export function createDebug(namespace: string): Debugger {
   const colorIndex = selectColorIndex(namespace, browserColors.length)
   const color = browserColors[colorIndex]
+  let prevTimestamp: number | undefined
+  let enabledVersion = -1
+  let enabledForNamespace = false
 
-  function debug(...args: any[]): void {
+  const isEnabled = (): boolean => {
+    if (enabledVersion !== namespaceVersion) {
+      enabledForNamespace = isNamespaceEnabled(namespace, namespacePattern)
+      enabledVersion = namespaceVersion
+    }
+    return enabledForNamespace
+  }
+
+  const debug = ((...args: any[]): void => {
     // Check if enabled
-    if (!isNamespaceEnabled(namespace, namespacePattern)) {
+    if (!isEnabled()) {
       return
     }
 
@@ -78,38 +85,41 @@ export function createDebug(namespace: string): Debugger {
 
     // Calculate time diff
     const now = Date.now()
-    const prev = prevTimestamps.get(namespace)
-    prevTimestamps.set(namespace, now)
+    const prev = prevTimestamp
+    prevTimestamp = now
 
-    const diff = prev ? formatMs(now - prev) : ''
+    const diff = prev === undefined ? '' : formatMs(now - prev)
 
     // Use %c for colored console output
     if (diff) {
       console.log(
-        `%c${namespace}%c ${message} %c+${diff}`,
+        '%c%s%c %s %c%s',
         `color: ${color}; font-weight: bold`,
+        namespace,
         'color: inherit',
-        'color: gray; font-weight: normal'
+        message,
+        'color: gray; font-weight: normal',
+        `+${diff}`
       )
     } else {
       console.log(
-        `%c${namespace}%c ${message}`,
+        '%c%s%c %s',
         `color: ${color}; font-weight: bold`,
-        'color: inherit'
+        namespace,
+        'color: inherit',
+        message
       )
     }
-  }
+  }) as Debugger
 
   debug.namespace = namespace
-  // BUG-6 fix: use a getter so debug.enabled reflects the current namespacePattern,
-  // not a stale snapshot captured at creation time
+  // Keep enabled reactive to subsequent enable() and disable() calls.
   Object.defineProperty(debug, 'enabled', {
-    get: () => isNamespaceEnabled(namespace, namespacePattern),
+    get: isEnabled,
     configurable: true,
   })
   debug.destroy = () => {
-    // Cleanup if needed
-    prevTimestamps.delete(namespace)
+    prevTimestamp = undefined
   }
 
   return debug
@@ -122,6 +132,7 @@ export function createDebug(namespace: string): Debugger {
 export function enable(namespaces: string): void {
   saveNamespaces(namespaces)
   namespacePattern = parseNamespaces(namespaces)
+  namespaceVersion += 1
 }
 
 /**
@@ -130,4 +141,12 @@ export function enable(namespaces: string): void {
 export function disable(): void {
   saveNamespaces('')
   namespacePattern = { enabled: [], disabled: [] }
+  namespaceVersion += 1
+}
+
+/**
+ * Check if a namespace is enabled using the same state as debugger instances.
+ */
+export function enabled(namespace: string): boolean {
+  return isNamespaceEnabled(namespace, namespacePattern)
 }

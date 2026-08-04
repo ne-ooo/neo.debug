@@ -2,8 +2,7 @@
  * Node.js entry point for @lpm.dev/neo.debug
  */
 
-import { createDebug, enable, disable } from './env/node.js'
-import { parseNamespaces, isNamespaceEnabled } from './core/namespace.js'
+import { createDebug, enable, disable, enabled } from './env/node.js'
 import type { DebugFactory } from './types.js'
 
 /**
@@ -25,10 +24,7 @@ factory.disable = disable
 /**
  * Check if a namespace is enabled
  */
-factory.enabled = (namespace: string) => {
-  const pattern = parseNamespaces(process.env['DEBUG'] || '')
-  return isNamespaceEnabled(namespace, pattern)
-}
+factory.enabled = enabled
 
 export default factory
 export { createDebug as debug, enable, disable }

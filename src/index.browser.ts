@@ -2,8 +2,7 @@
  * Browser entry point for @lpm.dev/neo.debug
  */
 
-import { createDebug, enable, disable } from './env/browser.js'
-import { parseNamespaces, isNamespaceEnabled } from './core/namespace.js'
+import { createDebug, enable, disable, enabled } from './env/browser.js'
 import type { DebugFactory } from './types.js'
 
 /**
@@ -25,15 +24,7 @@ factory.disable = disable
 /**
  * Check if a namespace is enabled
  */
-factory.enabled = (namespace: string) => {
-  try {
-    const debug = localStorage.getItem('debug') || ''
-    const pattern = parseNamespaces(debug)
-    return isNamespaceEnabled(namespace, pattern)
-  } catch {
-    return false
-  }
-}
+factory.enabled = enabled
 
 export default factory
 export { createDebug as debug, enable, disable }

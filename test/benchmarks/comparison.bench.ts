@@ -1,162 +1,101 @@
-import { bench, describe } from 'vitest'
+import { afterAll, beforeAll, bench, describe } from 'vitest'
 import debugOriginal from 'debug'
+
 import debugNeo from '../../src/index.node.js'
 
-// Suppress actual output during benchmarks
-const originalStderr = process.stderr.write
-const noop = () => true
+const originalStderrWrite = process.stderr.write
+const noopWrite = () => true
+const enabledPatterns = 'bench:*,-bench:disabled,app:*,-app:db'
+
+debugOriginal.enable(enabledPatterns)
+debugNeo.enable(enabledPatterns)
+
+const originalDisabled = debugOriginal('bench:disabled')
+const neoDisabled = debugNeo('bench:disabled')
+const originalSimple = debugOriginal('bench:simple')
+const neoSimple = debugNeo('bench:simple')
+const originalPrintf = debugOriginal('bench:printf')
+const neoPrintf = debugNeo('bench:printf')
+const originalJson = debugOriginal('bench:json')
+const neoJson = debugNeo('bench:json')
+const originalWildcardMatch = debugOriginal('app:server')
+const neoWildcardMatch = debugNeo('app:server')
+const originalWildcardExcluded = debugOriginal('app:db')
+const neoWildcardExcluded = debugNeo('app:db')
+const jsonValue = { user: 'john', points: 42, active: true }
+
+beforeAll(() => {
+  process.stderr.write = noopWrite as typeof process.stderr.write
+})
+
+afterAll(() => {
+  process.stderr.write = originalStderrWrite
+  debugOriginal.disable()
+  debugNeo.disable()
+})
 
 describe('Benchmark: neo.debug vs debug', () => {
-  beforeEach(() => {
-    // Suppress output
-    process.stderr.write = noop as any
-    // @ts-expect-error - accessing internal console
-    console._stdout.write = noop
-    // @ts-expect-error - accessing internal console
-    console._stderr.write = noop
-  })
-
-  afterEach(() => {
-    // Restore output
-    process.stderr.write = originalStderr
-  })
-
-  describe('Disabled namespace (no-op)', () => {
-    bench('debug (original) - disabled', () => {
-      const log = debugOriginal('test:disabled')
-      log('This should not output')
+  describe('Namespace creation only', () => {
+    bench('debug (original) - create', () => {
+      debugOriginal('bench:create')
     })
 
-    bench('neo.debug - disabled', () => {
-      const log = debugNeo('test:disabled')
-      log('This should not output')
+    bench('neo.debug - create', () => {
+      debugNeo('bench:create')
     })
   })
 
-  describe('Simple logging (enabled)', () => {
-    beforeEach(() => {
-      process.env.DEBUG = 'test:*'
-      debugOriginal.enable('test:*')
-      debugNeo.enable('test:*')
+  describe('Steady-state disabled call', () => {
+    bench('debug (original) - call disabled logger', () => {
+      originalDisabled('ignored')
     })
 
-    afterEach(() => {
-      delete process.env.DEBUG
-    })
-
-    bench('debug (original) - simple', () => {
-      const log = debugOriginal('test:bench')
-      log('Simple message')
-    })
-
-    bench('neo.debug - simple', () => {
-      const log = debugNeo('test:bench')
-      log('Simple message')
+    bench('neo.debug - call disabled logger', () => {
+      neoDisabled('ignored')
     })
   })
 
-  describe('Printf formatting (enabled)', () => {
-    beforeEach(() => {
-      process.env.DEBUG = 'test:*'
-      debugOriginal.enable('test:*')
-      debugNeo.enable('test:*')
+  describe('Steady-state enabled logging', () => {
+    bench('debug (original) - simple call', () => {
+      originalSimple('Simple message')
     })
 
-    afterEach(() => {
-      delete process.env.DEBUG
+    bench('neo.debug - simple call', () => {
+      neoSimple('Simple message')
     })
 
-    bench('debug (original) - printf', () => {
-      const log = debugOriginal('test:printf')
-      log('User %s has %d points', 'john', 42)
+    bench('debug (original) - printf call', () => {
+      originalPrintf('User %s has %d points', 'john', 42)
     })
 
-    bench('neo.debug - printf', () => {
-      const log = debugNeo('test:printf')
-      log('User %s has %d points', 'john', 42)
-    })
-  })
-
-  describe('Multiple arguments (enabled)', () => {
-    beforeEach(() => {
-      process.env.DEBUG = 'test:*'
-      debugOriginal.enable('test:*')
-      debugNeo.enable('test:*')
+    bench('neo.debug - printf call', () => {
+      neoPrintf('User %s has %d points', 'john', 42)
     })
 
-    afterEach(() => {
-      delete process.env.DEBUG
+    bench('debug (original) - JSON call', () => {
+      originalJson('Data: %j', jsonValue)
     })
 
-    bench('debug (original) - multiple args', () => {
-      const log = debugOriginal('test:args')
-      log('Message', 'with', 'multiple', 'arguments')
-    })
-
-    bench('neo.debug - multiple args', () => {
-      const log = debugNeo('test:args')
-      log('Message', 'with', 'multiple', 'arguments')
+    bench('neo.debug - JSON call', () => {
+      neoJson('Data: %j', jsonValue)
     })
   })
 
-  describe('JSON formatting (enabled)', () => {
-    beforeEach(() => {
-      process.env.DEBUG = 'test:*'
-      debugOriginal.enable('test:*')
-      debugNeo.enable('test:*')
+  describe('Steady-state wildcard filtering', () => {
+    bench('debug (original) - wildcard match call', () => {
+      originalWildcardMatch('Message')
     })
 
-    afterEach(() => {
-      delete process.env.DEBUG
+    bench('neo.debug - wildcard match call', () => {
+      neoWildcardMatch('Message')
     })
 
-    const testObj = { user: 'john', points: 42, active: true }
-
-    bench('debug (original) - JSON', () => {
-      const log = debugOriginal('test:json')
-      log('Data: %j', testObj)
+    bench('debug (original) - wildcard excluded call', () => {
+      originalWildcardExcluded('ignored')
     })
 
-    bench('neo.debug - JSON', () => {
-      const log = debugNeo('test:json')
-      log('Data: %j', testObj)
-    })
-  })
-
-  describe('Namespace creation', () => {
-    bench('debug (original) - create namespace', () => {
-      debugOriginal('test:new:namespace')
-    })
-
-    bench('neo.debug - create namespace', () => {
-      debugNeo('test:new:namespace')
-    })
-  })
-
-  describe('Wildcard namespace matching', () => {
-    beforeEach(() => {
-      debugOriginal.enable('app:*,-app:db')
-      debugNeo.enable('app:*,-app:db')
-    })
-
-    bench('debug (original) - wildcard match', () => {
-      const log = debugOriginal('app:server')
-      log('Message')
-    })
-
-    bench('neo.debug - wildcard match', () => {
-      const log = debugNeo('app:server')
-      log('Message')
-    })
-
-    bench('debug (original) - wildcard exclude', () => {
-      const log = debugOriginal('app:db')
-      log('Message')
-    })
-
-    bench('neo.debug - wildcard exclude', () => {
-      const log = debugNeo('app:db')
-      log('Message')
+    bench('neo.debug - wildcard excluded call', () => {
+      neoWildcardExcluded('ignored')
     })
   })
 })

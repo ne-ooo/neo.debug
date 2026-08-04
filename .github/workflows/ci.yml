@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  LPM_VERSION: "0.71.0"
+
+jobs:
+  verify:
+    name: Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["20.19.0", "22", "24"]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Install LPM
+        run: npm install --global "@lpm-registry/cli@${LPM_VERSION}"
+
+      - name: Pin the LPM-managed Node.js runtime
+        run: lpm use "node@${{ matrix.node }}"
+
+      - name: Install locked dependencies
+        env:
+          LPM_TOKEN: ${{ secrets.LPM_TOKEN }}
+        run: lpm ci --no-skills --no-editor-setup --audit-after-install
+
+      - name: Verify the lockfile stayed frozen
+        run: git diff --exit-code -- package.json lpm.lock
+
+      - name: Audit dependencies
+        run: lpm run security:audit
+
+      - name: Typecheck
+        run: lpm run typecheck
+
+      - name: Test Node and browser behavior with coverage gates
+        run: lpm run test:coverage
+
+      - name: Build Node ESM, Node CJS, browser, and declarations
+        run: lpm run build
+
+      - name: Test source-tree package exports
+        run: lpm run test:artifacts
+
+      - name: Validate and smoke-test the publishable package
+        run: lpm run test:package
+
+  node-18-runtime:
+    name: Node 18 runtime compatibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: "18.20.8"
+
+      - name: Install LPM
+        run: npm install --global "@lpm-registry/cli@${LPM_VERSION}"
+
+      - name: Pin the LPM-managed Node.js runtime
+        run: lpm use node@18.20.8
+
+      - name: Install build dependencies
+        env:
+          LPM_TOKEN: ${{ secrets.LPM_TOKEN }}
+        run: lpm ci --no-skills --no-editor-setup --no-security-summary --no-engine-strict
+
+      - name: Build Node ESM, Node CJS, browser, and declarations
+        run: lpm run build
+
+      - name: Smoke-test Node 18 and the publishable package
+        run: lpm run test:artifacts && lpm run test:package

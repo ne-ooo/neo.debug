@@ -14,7 +14,7 @@
 - ✅ **Printf-style formatting** - `debug('user %s has %d points', name, score)`
 - ✅ **Automatic colors** - Each namespace gets a unique color
 - ✅ **Time diff display** - Shows elapsed time between log calls
-- ✅ **100% test coverage** - Battle-tested with 65+ tests
+- ✅ **Coverage enforced in CI** - At least 95% statements, functions, and lines
 
 ## Quick Start
 
