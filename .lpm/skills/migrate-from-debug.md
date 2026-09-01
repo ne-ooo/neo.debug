@@ -13,11 +13,11 @@ globs:
 
 | Aspect | npm debug | neo.debug |
 |--------|-----------|-----------|
-| Dependencies | 1 (ms) | Zero (ms inlined) |
-| Bundle size | ~5KB | ~5KB (separate Node/Browser builds) |
+| Required dependencies | 1 (`ms`) | Zero (`ms` inlined) |
+| Bundle size | ~5 KB | ~7.7–11.2 KB (separate builds) |
 | TypeScript | Separate @types/debug | Native TypeScript |
 | Module format | CJS-first | ESM-first (with CJS fallback) |
-| Node.js colors | Hard dependency (supports) | Optional peer dep (@lpm.dev/neo.colors) |
+| Node.js colors | Built-in ANSI support | Optional peer dependency (`@lpm.dev/neo.colors`) |
 | Color palette | 76 ANSI256 colors | 6 basic colors |
 | `%o`/`%O` engine | util.inspect | JSON.stringify / String() |
 | Custom formatters | `debug.formatters.x = ...` | Not supported |
@@ -39,11 +39,11 @@ import debug from '@lpm.dev/neo.debug'
 import { debug, enable, disable } from '@lpm.dev/neo.debug'
 ```
 
-The default export API is identical. No code changes needed for the import itself.
+The default export supports the common factory API. No code changes are necessary for the import itself.
 
-## Step 2: All Core Features Work As-Is
+## Step 2: Use the Common Core Features
 
-These features are 1:1 compatible with no changes:
+These common features use the same API:
 
 ```typescript
 // Factory function
@@ -57,7 +57,7 @@ log('config: %j', { port: 3000 })       // ✓ Identical
 // Namespace properties
 log.namespace                            // ✓ 'app:db'
 log.enabled                              // ✓ getter (reactive)
-log.destroy()                            // ✓ cleanup
+log.enabled = false                      // ✓ per-instance override
 
 // Enable/disable
 debug.enable('app:*')                    // ✓ Identical
@@ -73,6 +73,8 @@ debug.enable('app:*,-app:db')            // ✓ Identical
 // Browser localStorage
 // localStorage.setItem('debug', 'app:*') // ✓ Identical
 ```
+
+`debug.disable()` returns the previous pattern. You can pass this value to `debug.enable()` to restore the state.
 
 ## Step 3: Handle Subtle Differences
 
@@ -127,6 +129,20 @@ log('state: %j', obj)
 
 neo.debug's `%j` catches the `JSON.stringify` error and returns `'[Circular]'` for the entire value. No partial circular marking.
 
+### `destroy()` resets the neo.debug timer
+
+The deprecated npm `debug` method does nothing. The neo.debug method resets the timer for its debugger instance.
+
+It does not disable the debugger. The next message has no elapsed-time suffix.
+
+### Node.js output safety and backpressure
+
+neo.debug neutralizes terminal control characters in namespaces and messages. It represents newlines with escape sequences.
+
+Thus, each Node.js debug record stays on one output line. Browser console output keeps its original message layout.
+
+If stderr is backpressured, neo.debug drops later messages until the stream drains. This policy prevents an unbounded output queue.
+
 ### Color palette
 
 npm `debug` uses 76 ANSI256 colors. neo.debug uses 6 basic colors (cyan, magenta, blue, yellow, green, red). After migration, namespaces will have different colors. Functionality is unaffected.
@@ -134,11 +150,11 @@ npm `debug` uses 76 ANSI256 colors. neo.debug uses 6 basic colors (cyan, magenta
 ### Colors dependency
 
 ```bash
-# npm debug — colors work out of the box via supports-color
-npm install debug
+# npm debug — colors work without an additional package
+lpm install debug
 
 # neo.debug — install optional peer dep for colored output
-npm install @lpm.dev/neo.debug @lpm.dev/neo.colors
+lpm install @lpm.dev/neo.debug @lpm.dev/neo.colors
 # Or skip neo.colors for plain text output (no warnings, silent fallback)
 ```
 

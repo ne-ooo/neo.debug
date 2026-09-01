@@ -28,7 +28,9 @@ await Promise.all([
     platform: 'node',
     packages: 'external',
     define: { 'import.meta.url': '__filename' },
-    footer: { js: 'module.exports = module.exports.default;' },
+    footer: {
+      js: 'var cjsExports = module.exports; module.exports = Object.assign(cjsExports.default, cjsExports);',
+    },
   }),
   build({
     ...shared,

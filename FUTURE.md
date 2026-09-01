@@ -445,5 +445,5 @@ Future breaking changes to consider:
 
 ---
 
-**Last Updated**: 2025-02-18
-**Package Version**: 0.1.0
+**Last Updated**: 2026-08-31
+**Package Version**: 1.0.0

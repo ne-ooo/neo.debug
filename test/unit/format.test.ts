@@ -114,9 +114,12 @@ describe('format', () => {
       expect(formatArgs(['%d', Symbol('value')])).toBe('[Unformattable]')
     })
 
-    it('should handle escaping', () => {
-      // %% is not implemented (not in the spec)
-      // Just ensure % without valid formatter is preserved
+    it('should collapse escaped percent signs without consuming values', () => {
+      expect(formatArgs(['100%% %s', 'complete'])).toBe('100% complete')
+      expect(formatArgs(['%%%s', 'value'])).toBe('%value')
+    })
+
+    it('should preserve unknown formatters', () => {
       expect(formatArgs(['100% complete'])).toBe('100% complete')
       expect(formatArgs(['%x is unknown', 'value'])).toBe('%x is unknown value')
     })

@@ -7,17 +7,33 @@
   "type": "module",
   "exports": {
     ".": {
-      "types": "./dist/node/index.node.d.ts",
       "browser": {
         "types": "./dist/browser/index.browser.d.ts",
-        "import": "./dist/browser/index.js"
+        "import": "./dist/browser/index.js",
+        "default": "./dist/browser/index.js"
       },
       "node": {
-        "types": "./dist/node/index.node.d.ts",
-        "import": "./dist/node/index.js",
-        "require": "./dist/node/index.cjs"
+        "import": {
+          "types": "./dist/node/index.node.d.ts",
+          "default": "./dist/node/index.js"
+        },
+        "require": {
+          "types": "./dist/node/index.node.d.cts",
+          "default": "./dist/node/index.cjs"
+        },
+        "default": {
+          "types": "./dist/node/index.node.d.ts",
+          "default": "./dist/node/index.js"
+        }
       },
-      "default": "./dist/node/index.js"
+      "import": {
+        "types": "./dist/node/index.node.d.ts",
+        "default": "./dist/node/index.js"
+      },
+      "require": {
+        "types": "./dist/node/index.node.d.cts",
+        "default": "./dist/node/index.cjs"
+      }
     }
   },
   "main": "./dist/node/index.cjs",
@@ -34,7 +50,7 @@
     "bench": "vitest bench --run",
     "security:audit": "lpm audit --fail-on=vuln",
     "test": "vitest run",
-    "test:artifacts": "tsc --noEmit --strict --target ES2022 --module ESNext --moduleResolution bundler --skipLibCheck test/artifacts/types.smoke.ts && node test/artifacts/exports.smoke.mjs",
+    "test:artifacts": "tsc --noEmit --strict --target ES2022 --module ESNext --moduleResolution bundler --skipLibCheck test/artifacts/types.smoke.ts && tsc --noEmit --strict --target ES2022 --module Node16 --moduleResolution Node16 test/artifacts/types-cjs.smoke.cts && node test/artifacts/exports.smoke.mjs",
     "test:package": "lpm publish --check && node test/artifacts/packed.smoke.mjs",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -67,6 +83,9 @@
     "esbuild": "0.28.1",
     "typescript": "^5.3.3",
     "vitest": "^3.2.7"
+  },
+  "overrides": {
+    "nanoid": "3.3.18"
   },
   "engines": {
     "node": ">=18.0.0"

@@ -39,8 +39,9 @@ export interface DebugFactory {
 
   /**
    * Disable all debug output
+   * @returns The previously enabled namespace pattern
    */
-  disable(): void
+  disable(): string
 
   /**
    * Check if a namespace is enabled

@@ -65,8 +65,12 @@ export function createDebug(namespace: string): Debugger {
   let prevTimestamp: number | undefined
   let enabledVersion = -1
   let enabledForNamespace = false
+  let enabledOverride: boolean | undefined
 
   const isEnabled = (): boolean => {
+    if (enabledOverride !== undefined) {
+      return enabledOverride
+    }
     if (enabledVersion !== namespaceVersion) {
       enabledForNamespace = isNamespaceEnabled(namespace, namespacePattern)
       enabledVersion = namespaceVersion
@@ -116,7 +120,11 @@ export function createDebug(namespace: string): Debugger {
   // Keep enabled reactive to subsequent enable() and disable() calls.
   Object.defineProperty(debug, 'enabled', {
     get: isEnabled,
-    configurable: true,
+    set: (value: boolean) => {
+      enabledOverride = value
+    },
+    enumerable: true,
+    configurable: false,
   })
   debug.destroy = () => {
     prevTimestamp = undefined
@@ -138,10 +146,15 @@ export function enable(namespaces: string): void {
 /**
  * Disable all debug output
  */
-export function disable(): void {
+export function disable(): string {
+  const previousNamespaces = [
+    ...namespacePattern.enabled,
+    ...namespacePattern.disabled.map((namespace) => `-${namespace}`),
+  ].join(',')
   saveNamespaces('')
   namespacePattern = { enabled: [], disabled: [] }
   namespaceVersion += 1
+  return previousNamespaces
 }
 
 /**

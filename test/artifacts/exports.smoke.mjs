@@ -11,6 +11,8 @@ assert.equal(typeof commonJsDebug, 'function')
 assert.equal(typeof commonJsDebug.enable, 'function')
 assert.equal(typeof commonJsDebug.disable, 'function')
 assert.equal(typeof commonJsDebug.enabled, 'function')
+assert.equal(typeof commonJsDebug.debug, 'function')
+assert.equal(commonJsDebug.default, commonJsDebug)
 
 commonJsDebug.enable('smoke:cjs')
 assert.equal(commonJsDebug('smoke:cjs').enabled, true)
@@ -20,6 +22,11 @@ const { default: esmDebug, debug: createEsmDebug } = await import('@lpm.dev/neo.
 
 assert.equal(typeof esmDebug, 'function')
 assert.equal(typeof createEsmDebug, 'function')
+
+commonJsDebug.enable('smoke:mixed')
+assert.equal(esmDebug('smoke:mixed').enabled, true)
+esmDebug.disable()
+assert.equal(commonJsDebug('smoke:mixed').enabled, false)
 
 esmDebug.enable('smoke:esm')
 assert.equal(esmDebug('smoke:esm').enabled, true)

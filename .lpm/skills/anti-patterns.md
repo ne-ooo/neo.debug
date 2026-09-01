@@ -1,6 +1,6 @@
 ---
 name: anti-patterns
-description: Common mistakes when using neo.debug — destructuring the enabled getter, object-first arguments, %o/%O expectations, %j circular handling, exclusion pattern scope, dynamic namespace leaks, silent colors fallback
+description: Common mistakes when using neo.debug — caching the enabled getter, object-first arguments, formatter expectations, exclusion scope, destroy behavior, and optional colors
 version: "1.0.0"
 globs:
   - "**/*.ts"
@@ -43,9 +43,11 @@ function doExpensiveWork() {
 }
 ```
 
-`enabled` is defined via `Object.defineProperty` as a getter. Every access calls `isNamespaceEnabled()` against the current global pattern state. Destructuring or assigning to a variable calls the getter once and stores the boolean — it becomes a stale snapshot that never updates when `enable()`/`disable()` is called. The TypeScript type shows `enabled: boolean`, making the getter behavior invisible to the type system.
+The `enabled` property is a getter. The getter uses the current global pattern unless you assign an instance override.
 
-Source: `src/env/node.ts:106-111` — `Object.defineProperty` getter
+Destructuring reads the getter one time. The stored Boolean value does not change after `enable()` or `disable()`.
+
+Source: `src/env/node.ts` and `src/env/browser.ts`
 
 ### [CRITICAL] Passing an object as the first argument
 
@@ -69,9 +71,11 @@ log('request failed: %j', { error: true, code: 500 })
 log('request failed: %o', { error: true, code: 500 })
 ```
 
-If the first argument is not a string, all arguments are converted with `String()` and joined with spaces. No format specifiers are processed. An AI familiar with pino-style `log(data, message)` ordering would hit this.
+If the first argument is not a string, all arguments are converted with `String()` and joined with spaces. No format specifiers are processed.
 
-Source: `src/core/format.ts:55-57` — `typeof fmt !== 'string'` check
+This argument order causes incorrect output for users of pino-style `log(data, message)` calls.
+
+Source: `src/core/format.ts`
 
 ### [HIGH] Expecting `%o` and `%O` to use `util.inspect`
 
@@ -108,7 +112,7 @@ log('state: %j', { nested: { deep: true } })
 
 neo.debug uses `JSON.stringify` for `%o` and `String()` for `%O`, not `util.inspect`. This means Maps, Sets, Buffers, class instances, and objects with custom `inspect` methods will format differently than npm `debug`.
 
-Source: `src/core/format.ts:27-35` — JSON.stringify for `%o`, String() for `%O`
+Source: `src/core/format.ts`
 
 ### [HIGH] `%j` replaces entire circular object with `'[Circular]'`
 
@@ -144,7 +148,7 @@ log('state: %s', safeStringify(circularObj))
 
 `%j` catches the `JSON.stringify` error from circular references and returns the string `'[Circular]'` for the entire value. Unlike Node.js `util.format` which marks only the circular reference, neo.debug loses all non-circular data in the object.
 
-Source: `src/core/format.ts:19-26` — try/catch around JSON.stringify
+Source: `src/core/format.ts`
 
 ### [HIGH] Exclusion `-app:db` does not exclude sub-namespaces
 
@@ -173,45 +177,39 @@ debug.enable('app:*,-app:db,-app:db:*')
 // Excludes: app:db and app:db:* (but not app:dba)
 ```
 
-Exclusion patterns without wildcards are exact matches — `-app:db` becomes the regex `^app:db$` which only matches the literal string `app:db`, not `app:db:queries`. Always add `*` to exclusion patterns when you want to exclude a namespace and all its children.
+Exclusion patterns without wildcards are exact matches. Thus, `-app:db` does not match `app:db:queries`.
 
-Source: `src/core/namespace.ts:43-56` — `*` converts to `.*?` regex, no `*` means exact match with `^...$` anchors
+Add `*` when an exclusion must match a namespace and its child namespaces.
 
-### [MEDIUM] Dynamic namespaces without `destroy()` leak timestamps
+Source: `src/core/namespace.ts`
+
+### [MEDIUM] Assuming that `destroy()` disables a debugger
 
 Wrong:
 
 ```typescript
-app.get('/api/:id', (req, res) => {
-  const log = debug(`api:request:${req.params.id}`)
-  log('processing request')
-  // log goes out of scope, but prevTimestamps Map still holds the entry
-})
-// After 100K requests: 100K entries in prevTimestamps (unbounded growth)
+const log = debug('api:request')
+debug.enable('api:*')
+
+log.destroy()
+log('still visible') // The message is written.
 ```
 
 Correct:
 
 ```typescript
-// Option 1: Call destroy() when done
-app.get('/api/:id', (req, res) => {
-  const log = debug(`api:request:${req.params.id}`)
-  log('processing request')
-  // ... handle request
-  log.destroy()  // Removes prevTimestamps entry
-})
-
-// Option 2 (better): Use a static namespace with data in the message
 const log = debug('api:request')
+debug.enable('api:*')
 
-app.get('/api/:id', (req, res) => {
-  log('processing %s', req.params.id)  // One debugger, no leak
-})
+log.enabled = false
+log('not visible')
 ```
 
-`destroy()` only removes the namespace's entry from the internal `prevTimestamps` Map used for time diff display. For static namespaces (created once at module load), this is irrelevant. For dynamic namespaces created per-request or in loops, the Map grows without bound. Each entry is small (string key + number), but it never shrinks.
+`destroy()` resets only the elapsed-time measurement. It does not disable the debugger.
 
-Source: `src/env/node.ts:112-115` — `prevTimestamps.delete(namespace)`
+Each debugger stores its timestamp in a closure. An unused debugger does not remain in a global timestamp map.
+
+Source: `src/env/node.ts` and `src/env/browser.ts`
 
 ### [MEDIUM] Silent colors fallback — no warning when `@lpm.dev/neo.colors` is missing
 
@@ -228,7 +226,7 @@ Correct:
 
 ```typescript
 // Install the optional peer dependency for colored output
-// npm install @lpm.dev/neo.colors
+// lpm install @lpm.dev/neo.colors
 
 // Or accept plain text — the library works identically without colors
 // The fallback is intentionally silent (no warnings, no errors)
@@ -237,6 +235,10 @@ Correct:
 // — no extra dependency needed
 ```
 
-When `@lpm.dev/neo.colors` is not installed, the color palette falls back to identity functions (no-op). There is no runtime warning or error. The `peerDependenciesMeta` marks it as `optional: true`, so package managers also don't warn. If you see colored output in one project but not another, check whether `@lpm.dev/neo.colors` is installed.
+When `@lpm.dev/neo.colors` is not installed, the color palette uses identity functions. There is no runtime warning or error.
 
-Source: `src/env/node.ts:18-55` — try/catch with identity function fallback
+The `peerDependenciesMeta` marks the package as optional. Thus, package managers also give no warning.
+
+If output has no color, make sure that `@lpm.dev/neo.colors` is installed.
+
+Source: `src/env/node.ts`

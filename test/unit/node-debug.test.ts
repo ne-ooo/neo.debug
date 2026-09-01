@@ -87,6 +87,74 @@ describe('node debug — createDebug', () => {
     expect(stderrSpy).toHaveBeenCalledTimes(1)
   })
 
+  it('supports per-instance enabled overrides', () => {
+    const debug = createDebug('override:test')
+
+    debug.enabled = true
+    debug('forced on')
+
+    enable('override:*')
+    debug.enabled = false
+    debug('forced off')
+
+    expect(stderrSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('neutralizes terminal controls and attributes every output line', () => {
+    enable('*')
+    const debug = createDebug('api\nadmin\u001b[2J\u202e')
+
+    debug('user=%s\nadmin auth=success\u001b[2J\u202e', 'mallory\rroot')
+
+    const output = String(stderrSpy.mock.calls[0]?.[0])
+    expect(output).toBe(
+      'api\\nadmin\\x1b[2J\\u202e ' +
+        'user=mallory\\rroot\\nadmin auth=success\\x1b[2J\\u202e\n'
+    )
+    expect(output).not.toContain('\u001b')
+    expect(output).not.toContain('\r')
+    expect(output.split('\n')).toHaveLength(2)
+  })
+
+  it('neutralizes all Unicode bidirectional controls', () => {
+    const bidiControls =
+      '\u061c\u200e\u200f\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069'
+    enable('bidi')
+    const debug = createDebug('bidi')
+
+    debug('value=%s', bidiControls)
+
+    const output = String(stderrSpy.mock.calls[0]?.[0])
+    for (const control of bidiControls) {
+      expect(output).not.toContain(control)
+    }
+    expect(output).toContain(
+      '\\u061c\\u200e\\u200f\\u202a\\u202b\\u202c' +
+        '\\u202d\\u202e\\u2066\\u2067\\u2068\\u2069'
+    )
+  })
+
+  it('drops messages until stderr drains after backpressure', () => {
+    const conversion = vi.fn(() => 'dropped value')
+    stderrSpy.mockReturnValueOnce(false)
+    enable('backpressure')
+    const debug = createDebug('backpressure')
+
+    debug('queued')
+    debug('dropped %s', { toString: conversion })
+    debug('dropped two')
+
+    expect(stderrSpy).toHaveBeenCalledTimes(1)
+    expect(conversion).not.toHaveBeenCalled()
+
+    process.stderr.emit('drain')
+    expect(stderrSpy).toHaveBeenCalledTimes(2)
+    expect(String(stderrSpy.mock.calls[1]?.[0])).toContain('dropped 2 messages')
+
+    debug('after drain')
+    expect(stderrSpy).toHaveBeenCalledTimes(3)
+  })
+
   it('destroy() removes timestamp tracking', () => {
     enable('temp')
     const debug = createDebug('temp')
@@ -156,6 +224,14 @@ describe('node debug — enable / disable', () => {
     const debug = createDebug('abc')
     debug('should not appear')
     expect(stderrSpy).not.toHaveBeenCalled()
+  })
+
+  it('persists enable state and returns it from disable()', () => {
+    enable('persist:*,-persist:secret')
+    expect(process.env['DEBUG']).toBe('persist:*,-persist:secret')
+
+    expect(disable()).toBe('persist:*,-persist:secret')
+    expect(process.env['DEBUG']).toBeUndefined()
   })
 
   it('excluded namespace (-prefix) is suppressed', () => {

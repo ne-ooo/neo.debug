@@ -13,20 +13,23 @@ globs:
 
 ## Overview
 
-neo.debug is a zero-dependency debugging utility with namespace-based logging, printf-style formatting, and automatic time diffs. Separate optimized builds for Node.js and Browser. 100% API compatible with npm `debug` for core features.
+neo.debug is a zero-dependency debugging utility. It supports namespaces, printf-style formatting, and automatic time differences.
+
+Separate builds contain the Node.js and browser code. The common factory API is compatible with npm `debug`.
 
 ## Creating a Debugger
 
 ```typescript
 import debug from '@lpm.dev/neo.debug'
 
+debug.enable('app:*')
 const log = debug('app:db')
 log('connected to database')
-// app:db connected to database +0ms
+// app:db connected to database
 
 const authLog = debug('app:auth')
 authLog('user logged in: %s', 'john')
-// app:auth user logged in: john +0ms
+// app:auth user logged in: john
 ```
 
 The factory function returns a callable debugger bound to a namespace. Create one per module/subsystem at the top level.
@@ -75,7 +78,8 @@ localStorage.setItem('debug', 'app:*')
 import debug from '@lpm.dev/neo.debug'
 
 debug.enable('app:*')           // Enable pattern
-debug.disable()                 // Disable all
+const previous = debug.disable() // Disable all and return the previous pattern
+debug.enable(previous)           // Restore the previous pattern
 debug.enabled('app:db')         // Check if namespace is enabled (returns boolean)
 ```
 
@@ -126,12 +130,13 @@ log('details: %o', { nested: { deep: true } })
 | Specifier | Description | Example |
 |-----------|-------------|---------|
 | `%s` | String | `log('%s', 'hello')` → `hello` |
-| `%d` | Number (rounded) | `log('%d', 3.7)` → `4` |
+| `%d` | Number | `log('%d', 3.7)` → `3.7` |
 | `%i` | Integer (truncated) | `log('%i', 3.7)` → `3` |
 | `%f` | Float | `log('%f', 3.14)` → `3.14` |
 | `%j` | JSON (compact) | `log('%j', obj)` → `{"key":"val"}` |
 | `%o` | Pretty JSON (2-space) | `log('%o', obj)` → multiline JSON |
 | `%O` | toString() | `log('%O', obj)` → `[object Object]` |
+| `%%` | Percent sign | `log('100%%')` → `100%` |
 
 Extra arguments beyond format specifiers are appended to the output.
 
@@ -142,23 +147,24 @@ Each log call shows the time elapsed since the previous call for that namespace:
 ```typescript
 const log = debug('app:db')
 
-log('query started')           // app:db query started +0ms
+log('query started')           // app:db query started
 // ... 150ms later
 log('query complete')          // app:db query complete +150ms
 // ... 2.5 seconds later
 log('next query')              // app:db next query +2s
 ```
 
-Time diffs are tracked per-namespace. Different debuggers have independent timers.
+Each debugger has an independent timer. The first call has no time difference.
 
 ## Debugger Instance API
 
 ```typescript
 const log = debug('app:db')
 
-log.namespace     // 'app:db' (read-only string)
-log.enabled       // true/false (getter — always reflects current state)
-log.destroy()     // Cleans up internal timestamp tracking
+log.namespace     // 'app:db'
+log.enabled       // Current global state, unless the instance has an override
+log.enabled = true  // Keep this instance enabled
+log.destroy()     // Reset this instance timer
 ```
 
 ### Conditional expensive work
@@ -178,28 +184,24 @@ function trackEvent(event: string) {
 Install `@lpm.dev/neo.colors` for colored namespace labels and gray time diffs:
 
 ```bash
-npm install @lpm.dev/neo.colors
+lpm install @lpm.dev/neo.colors
 ```
 
 Without it, debug output works identically but without ANSI color codes. The fallback is silent — no warnings or errors.
 
 In the browser, colors use `%c` CSS styling automatically (no extra dependency needed).
 
-## Cleanup with destroy()
+## Reset the Timer with destroy()
 
-For static namespaces (created once at module load), cleanup is unnecessary. For dynamic namespaces, call `destroy()` to prevent timestamp map growth:
+Each debugger stores its previous timestamp in its own closure. An unused debugger can be garbage-collected.
+
+Call `destroy()` only when the next message must start a new time measurement:
 
 ```typescript
-// Static — no cleanup needed
 const log = debug('app:db')
-
-// Dynamic — call destroy() when done
-function handleRequest(id: string) {
-  const log = debug(`app:req:${id}`)
-  log('processing')
-  // ... work ...
-  log.destroy()
-}
+log('first operation')
+log.destroy()
+log('new operation') // No elapsed time is appended.
 ```
 
 ## TypeScript Types
@@ -213,5 +215,9 @@ import type { Debugger, DebugFactory } from '@lpm.dev/neo.debug'
 
 ## Output Target
 
-- **Node.js**: writes to `process.stderr` (standard debug convention)
+- **Node.js**: writes to `process.stderr` and neutralizes terminal control characters
 - **Browser**: writes to `console.log` with `%c` CSS color styling
+
+Node.js represents control characters and newlines with escape sequences. Thus, each debug record stays on one output line.
+
+If stderr is backpressured, neo.debug drops messages until the stream drains.

@@ -45,11 +45,29 @@ describe('browser debug', () => {
   it('persists enable and disable changes', async () => {
     const { enable, disable } = await import('../../src/env/browser.js')
 
-    enable('persist:*')
-    expect(localStorage.setItem).toHaveBeenCalledWith('debug', 'persist:*')
+    enable('persist:*,-persist:secret')
+    expect(localStorage.setItem).toHaveBeenCalledWith(
+      'debug',
+      'persist:*,-persist:secret'
+    )
 
-    disable()
+    expect(disable()).toBe('persist:*,-persist:secret')
     expect(localStorage.removeItem).toHaveBeenCalledWith('debug')
+  })
+
+  it('supports per-instance enabled overrides', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    const { createDebug, enable } = await import('../../src/env/browser.js')
+    const log = createDebug('override:browser')
+
+    log.enabled = true
+    log('forced on')
+
+    enable('override:*')
+    log.enabled = false
+    log('forced off')
+
+    expect(consoleSpy).toHaveBeenCalledTimes(1)
   })
 
   it('works when localStorage throws and invalidates cached state', async () => {

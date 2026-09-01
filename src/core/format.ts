@@ -74,7 +74,10 @@ export function formatArgs(args: any[]): string {
 
   // Replace format specifiers
   let index = 0
-  const formatted = format.replace(/%([sdifjOo])/g, (match, type) => {
+  const formatted = format.replace(/%([%sdifjOo])/g, (match, type) => {
+    if (type === '%') {
+      return '%'
+    }
     if (index >= values.length) {
       return match
     }

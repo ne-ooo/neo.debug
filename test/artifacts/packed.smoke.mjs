@@ -34,7 +34,7 @@ try {
   )
   await writeFile(
     join(consumerRoot, 'cjs.cjs'),
-    "const assert = require('node:assert/strict'); const debug = require('@lpm.dev/neo.debug'); assert.equal(typeof debug, 'function'); debug.enable('packed:cjs'); assert.equal(debug('packed:cjs').enabled, true);\n"
+    "const assert = require('node:assert/strict'); const debug = require('@lpm.dev/neo.debug'); assert.equal(typeof debug, 'function'); assert.equal(debug.default, debug); assert.equal(typeof debug.debug, 'function'); debug.enable('packed:cjs'); assert.equal(debug('packed:cjs').enabled, true);\n"
   )
   await writeFile(
     join(consumerRoot, 'browser.mjs'),
@@ -43,6 +43,10 @@ try {
   await writeFile(
     join(consumerRoot, 'types.ts'),
     "import debug, { type Debugger } from '@lpm.dev/neo.debug'; const log: Debugger = debug('packed:types'); log('message');\n"
+  )
+  await writeFile(
+    join(consumerRoot, 'types-cjs.cts'),
+    "import debug = require('@lpm.dev/neo.debug'); const log: debug.Debugger = debug('packed:types-cjs'); debug.debug('packed:named')('message'); debug.default.debug('packed:nested')('message'); debug.default.default('packed:default')('message'); log('message');\n"
   )
 
   runNode('esm.mjs')
@@ -68,6 +72,24 @@ try {
     { cwd: consumerRoot, encoding: 'utf8' }
   )
   assert.equal(typecheck.status, 0, typecheck.stderr || typecheck.stdout)
+
+  const commonJsTypecheck = spawnSync(
+    process.execPath,
+    [
+      typescriptBin,
+      '--noEmit',
+      '--strict',
+      '--target',
+      'ES2022',
+      '--module',
+      'Node16',
+      '--moduleResolution',
+      'Node16',
+      'types-cjs.cts',
+    ],
+    { cwd: consumerRoot, encoding: 'utf8' }
+  )
+  assert.equal(commonJsTypecheck.status, 0, commonJsTypecheck.stderr || commonJsTypecheck.stdout)
 } finally {
   await rm(stagingRoot, { recursive: true, force: true })
 }
